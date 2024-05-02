@@ -40,6 +40,7 @@ class CT_Blip(BaseOxmlElement):
     link: str | None = OptionalAttribute(  # pyright: ignore[reportAssignmentType]
         "r:link", ST_RelationshipId
     )
+    extLst = ZeroOrOne("a:extLst")
 
 
 class CT_BlipFillProperties(BaseOxmlElement):
@@ -114,7 +115,7 @@ class CT_Inline(BaseOxmlElement):
             "  <a:graphic>\n"
             '    <a:graphicData uri="URI not set"/>\n'
             "  </a:graphic>\n"
-            "</wp:inline>" % nsdecls("wp", "a", "pic", "r")
+            "</wp:inline>" % nsdecls("wp", "a", "pic", "r", "asvg")
         )
 
 
@@ -146,13 +147,47 @@ class CT_Picture(BaseOxmlElement):
     @classmethod
     def new(cls, pic_id: int, filename: str, rId: str, cx: Length, cy: Length) -> CT_Picture:
         """A new minimum viable `<pic:pic>` (picture) element."""
-        pic = parse_xml(cls._pic_xml())
+        if filename.endswith(".svg"):
+            pic = parse_xml(cls._pic_xml_svg())
+            pic.blipFill.blip.extLst.ext.svgBlip.embed = rId
+        else:
+            pic = parse_xml(cls._pic_xml())
+            pic.blipFill.blip.embed = rId
         pic.nvPicPr.cNvPr.id = pic_id
         pic.nvPicPr.cNvPr.name = filename
-        pic.blipFill.blip.embed = rId
         pic.spPr.cx = cx
         pic.spPr.cy = cy
         return pic
+
+    @classmethod
+    def _pic_xml_svg(cls):
+        return (
+            "<pic:pic %s>\n"
+            "  <pic:nvPicPr>\n"
+            '    <pic:cNvPr id="666" name="unnamed"/>\n'
+            "    <pic:cNvPicPr/>\n"
+            "  </pic:nvPicPr>\n"
+            "  <pic:blipFill>\n"
+            "    <a:blip>\n"
+            "      <a:extLst>\n"
+            '        <a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">\n'
+            "          <asvg:svgBlip/>\n"
+            "        </a:ext>\n"
+            "      </a:extLst>\n"
+            "    </a:blip>\n"
+            "    <a:stretch>\n"
+            "      <a:fillRect/>\n"
+            "    </a:stretch>\n"
+            "  </pic:blipFill>\n"
+            "  <pic:spPr>\n"
+            "    <a:xfrm>\n"
+            '      <a:off x="0" y="0"/>\n'
+            '      <a:ext cx="914400" cy="914400"/>\n'
+            "    </a:xfrm>\n"
+            '    <a:prstGeom prst="rect"/>\n'
+            "  </pic:spPr>\n"
+            "</pic:pic>" % nsdecls("pic", "a", "r", "asvg")
+        )
 
     @classmethod
     def _pic_xml(cls):
@@ -175,7 +210,7 @@ class CT_Picture(BaseOxmlElement):
             "    </a:xfrm>\n"
             '    <a:prstGeom prst="rect"/>\n'
             "  </pic:spPr>\n"
-            "</pic:pic>" % nsdecls("pic", "a", "r")
+            "</pic:pic>" % nsdecls("pic", "a", "r", "asvg")
         )
 
 
@@ -207,6 +242,7 @@ class CT_PositiveSize2D(BaseOxmlElement):
     cy: Length = RequiredAttribute(  # pyright: ignore[reportAssignmentType]
         "cy", ST_PositiveCoordinate
     )
+    svgBlip = ZeroOrOne("asvg:svgBlip")
 
 
 class CT_PresetGeometry2D(BaseOxmlElement):
@@ -273,6 +309,7 @@ class CT_Transform2D(BaseOxmlElement):
 
     off = ZeroOrOne("a:off", successors=("a:ext",))
     ext = ZeroOrOne("a:ext", successors=())
+    embed = OptionalAttribute("r:embed", ST_RelationshipId)
 
     @property
     def cx(self):
